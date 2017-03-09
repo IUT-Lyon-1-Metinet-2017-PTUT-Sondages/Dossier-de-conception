@@ -6,7 +6,8 @@ framework:
     session:
         storage_id: session.storage.mock_file
     profiler:
-        collect: false
+        collect: true
+        enabled: true
 
 web_profiler:
     toolbar: false
@@ -22,5 +23,6 @@ doctrine:
         default_connection: default
         connections:
             default:
-                driver: pdo_sqlite
-                path: "%kernel.cache_dir%/test.db"
+                driver: pdo_mysql
+                dbname: "%database_name%_testing"
+
