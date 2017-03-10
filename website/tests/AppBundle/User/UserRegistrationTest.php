@@ -21,15 +21,12 @@ class UserRegistrationTest extends DomainTestCase
     const REGISTRATION_BUTTON = 'Créer un compte';
 
     const MESSAGE_ENTER_EMAIL = "Entrez une adresse e-mail";
-    const MESSAGE_ENTER_USERNAME = "Entrez un nom d'utilisateur";
     const MESSAGE_ENTER_PASSWORD = "Entrez un mot de passe";
 
     const ERROR_ALREADY_USED_EMAIL = "L'adresse e-mail est déjà utilisée.";
-    const ERROR_ALREADY_USED_USERNAME = "Le nom d'utilisateur est déjà utilisé.";
-    const ERROR_INVALID_EMAIL_DOMAIN = "L'adresse e-mail n'est pas associée à l'Université Lyon 1.";
+    const ERROR_INVALID_EMAIL_DOMAIN = "L'adresse e-mail n'a pas la forme « prenom.nom@...univ-lyon1.fr ».";
 
     const INPUT_EMAIL = 'fos_user_registration_form[email]';
-    const INPUT_USERNAME = 'fos_user_registration_form[username]';
     const INPUT_PASSWORD_FIRST = 'fos_user_registration_form[plainPassword][first]';
     const INPUT_PASSWORD_SECOND = 'fos_user_registration_form[plainPassword][second]';
 
@@ -54,15 +51,13 @@ class UserRegistrationTest extends DomainTestCase
         $responseContent = $client->getResponse()->getContent();
 
         $this->assertContains($this->quote(self::MESSAGE_ENTER_EMAIL), $responseContent);
-        $this->assertContains($this->quote(self::MESSAGE_ENTER_USERNAME), $responseContent);
         $this->assertContains($this->quote(self::MESSAGE_ENTER_PASSWORD), $responseContent);
     }
 
     public function test_with_already_existing_user()
     {
         $user = new User();
-        $user->setEmail('john@etu.univ-lyon1.fr');
-        $user->setUsername('John');
+        $user->setEmail('john.doe@etu.univ-lyon1.fr');
         $user->setPlainPassword('foobar');
         $this->em->persist($user);
         $this->em->flush();
@@ -70,8 +65,7 @@ class UserRegistrationTest extends DomainTestCase
         $client = $this->createClient();
         $crawler = $client->request('GET', self::REGISTRATION_ROUTE);
         $form = $crawler->selectButton(self::REGISTRATION_BUTTON)->form(array(
-            self::INPUT_EMAIL => 'john@etu.univ-lyon1.fr',
-            self::INPUT_USERNAME => 'John',
+            self::INPUT_EMAIL => 'john.doe@etu.univ-lyon1.fr',
             self::INPUT_PASSWORD_FIRST => 'foobar',
             self::INPUT_PASSWORD_SECOND => 'foobar',
         ));
@@ -80,7 +74,6 @@ class UserRegistrationTest extends DomainTestCase
         $responseContent = $client->getResponse()->getContent();
 
         $this->assertContains($this->quote(self::ERROR_ALREADY_USED_EMAIL), $responseContent);
-        $this->assertContains($this->quote(self::ERROR_ALREADY_USED_USERNAME), $responseContent);
     }
 
     public function test_with_invalid_email_university_domain()
@@ -89,7 +82,6 @@ class UserRegistrationTest extends DomainTestCase
         $crawler = $client->request('GET', self::REGISTRATION_ROUTE);
         $form = $crawler->selectButton(self::REGISTRATION_BUTTON)->form(array(
             self::INPUT_EMAIL => 'john@doe.com',
-            self::INPUT_USERNAME => 'John',
             self::INPUT_PASSWORD_FIRST => 'foobar',
             self::INPUT_PASSWORD_SECOND => 'foobar',
         ));
@@ -107,8 +99,7 @@ class UserRegistrationTest extends DomainTestCase
         $client->enableProfiler();
         $crawler = $client->request('GET', self::REGISTRATION_ROUTE);
         $form = $crawler->selectButton(self::REGISTRATION_BUTTON)->form(array(
-            self::INPUT_EMAIL => 'john@univ-lyon1.fr',
-            self::INPUT_USERNAME => 'John',
+            self::INPUT_EMAIL => 'john.doe@univ-lyon1.fr',
             self::INPUT_PASSWORD_FIRST => 'foobar',
             self::INPUT_PASSWORD_SECOND => 'foobar',
         ));
@@ -119,17 +110,22 @@ class UserRegistrationTest extends DomainTestCase
         $profiler = $client->getProfile();
         /** @var MessageDataCollector $swiftMailerCollection */
         $swiftMailerCollection = $profiler->getCollector('swiftmailer');
+
         $client->followRedirect();
         $responseContent = $client->getResponse()->getContent();
-        $john = $this->userRepository->findUserByUsername('John');
+        /** @var User $john */
+        $john = $this->userRepository->findUserByEmail('john.doe@univ-lyon1.fr');
 
-        $this->assertNotContains($this->quote(self::ERROR_INVALID_EMAIL_DOMAIN), $responseContent);
-        $this->assertContains($this->quote("Un e-mail a été envoyé à l'adresse john@univ-lyon1.fr."), $responseContent);
+        $this->assertNotNull($john);
         $this->assertCount(1, $this->userRepository->findUsers());
-        $this->assertEquals('john@univ-lyon1.fr', $john->getEmail());
-        $this->assertEquals('John', $john->getUsername());
+        $this->assertEquals('john.doe@univ-lyon1.fr', $john->getEmail());
+        $this->assertEquals('john.doe', $john->getUsername());
+        $this->assertEquals('John', $john->getFirstName());
+        $this->assertEquals('Doe', $john->getLastName());
         $this->assertFalse($john->isEnabled());
         $this->assertNotNull($john->getConfirmationToken());
+        $this->assertNotContains($this->quote(self::ERROR_INVALID_EMAIL_DOMAIN), $responseContent);
+        $this->assertContains($this->quote("Un e-mail a été envoyé à l'adresse john.doe@univ-lyon1.fr."), $responseContent);
 
         // Confirm by requesting the confirmation link
 
@@ -141,7 +137,7 @@ class UserRegistrationTest extends DomainTestCase
             ], UrlGeneratorInterface::ABSOLUTE_URL);
 
         $this->assertCount(1, $swiftMailerCollection->getMessages());
-        $this->assertEquals("Bienvenue John !", $email->getSubject());
+        $this->assertEquals("Bienvenue john.doe !", $email->getSubject());
         $this->assertContains($accountConfirmationLink, $email->getBody());
 
         $client->request('GET', $accountConfirmationLink);
@@ -150,7 +146,7 @@ class UserRegistrationTest extends DomainTestCase
         $this->userRepository->reloadUser($john);
         $responseContent = $client->getResponse()->getContent();
 
-        $this->assertContains($this->quote("Félicitations John, votre compte est maintenant activé."), $responseContent);
+        $this->assertContains($this->quote("Félicitations john.doe, votre compte est maintenant activé."), $responseContent);
         $this->assertTrue($john->isEnabled());
         $this->assertNull($john->getConfirmationToken());
     }

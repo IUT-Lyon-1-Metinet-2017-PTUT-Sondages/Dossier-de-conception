@@ -36,8 +36,7 @@ class UserLoginTest extends DomainTestCase
     protected function createUser($enabled = false)
     {
         $user = new User();
-        $user->setUsername('John');
-        $user->setEmail('john@etu.univ-lyon1.fr');
+        $user->setEmail('john.doe@etu.univ-lyon1.fr');
         $user->setPlainPassword('foobar');
         $user->setEnabled($enabled);
         $this->em->persist($user);
@@ -59,14 +58,12 @@ class UserLoginTest extends DomainTestCase
         $this->assertContains('Identifiants invalides.', $responseContent);
     }
 
-    public function test_with_invalid_email()
+    public function test_with_invalid_credentials()
     {
-        $this->markTestIncomplete("En attente de l'utilisation de l'e-mail en tant qu'username.");
-
         $client = $this->createClient();
         $crawler = $client->request('GET', self::LOGIN_ACTION_ROUTE);
         $form = $crawler->selectButton(self::LOGIN_ACTION_BUTTON)->form([
-            self::INPUT_USERNAME => 'not-an-email',
+            self::INPUT_USERNAME => 'email@example.com',
             self::INPUT_PASSWORD => 'password',
         ]);
         $client->submit($form);
@@ -79,8 +76,6 @@ class UserLoginTest extends DomainTestCase
 
     public function test_with_valid_credentials()
     {
-        $this->markTestIncomplete("En attente de l'utilisation de l'e-mail en tant qu'username.");
-
         $user = $this->createUser(true);
         $this->assertCount(1, $this->userRepository->findUsers());
 
@@ -95,6 +90,6 @@ class UserLoginTest extends DomainTestCase
         $client->followRedirect();
         $responseContent = $client->getResponse()->getContent();
 
-        $this->assertContains('Connecté en tant que John', $responseContent);
+        $this->assertContains('Connecté en tant que john.doe', $responseContent);
     }
 }
