@@ -271,3 +271,9 @@ label:hover:before {
     left: 5px;
     top: 5px;
 }
+
+.kdt-radio [type="radio"]:disabled ~ label,
+.kdt-checkbox [type="checkbox"]:disabled ~ label {
+    opacity: .5;
+}
+
